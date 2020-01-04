@@ -1,3 +1,5 @@
+pub mod intcode;
+
 use std::env;
 use std::fs;
 
@@ -32,6 +34,24 @@ where
                 Some(d.parse::<T>().expect("can't parse integer"))
             }
         })
+        .collect()
+}
+
+pub fn read_input_file_or_intcode() -> Vec<i64> {
+    let filename = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "/dev/stdin".to_string());
+
+    let comma_separated = if filename.contains(',') {
+        filename
+    } else {
+        fs::read_to_string(filename).expect("couldn't read file")
+    };
+
+    comma_separated
+        .trim()
+        .split(',')
+        .map(|i| i.parse().expect("can't parse integer"))
         .collect()
 }
 

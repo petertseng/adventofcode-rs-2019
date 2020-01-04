@@ -16,7 +16,7 @@ In general, all solutions can be invoked in both of the following ways:
 
 Some may additionally support other ways:
 
-* None yet.
+* All intcode days: May pass the intcode in ARGV as a single argument separated by commas.
 
 ## Closing Thoughts
 
