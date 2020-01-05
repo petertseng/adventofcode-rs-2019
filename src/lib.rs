@@ -1,4 +1,5 @@
 pub mod intcode;
+pub mod search;
 
 use std::env;
 use std::fs;
