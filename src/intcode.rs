@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 #[derive(Clone, Debug)]
 pub struct Computer<'a> {
     pos: usize,
+    relative_base: i64,
     romem: &'a [i64],
     rwmem: HashMap<usize, i64>,
     halt: bool,
@@ -16,6 +17,7 @@ impl<'a> Computer<'a> {
     pub fn new(mem: &'a [i64]) -> Self {
         Self {
             pos: 0,
+            relative_base: 0,
             romem: mem,
             rwmem: HashMap::new(),
             halt: false,
@@ -34,7 +36,13 @@ impl<'a> Computer<'a> {
     }
 
     pub fn get(&self, i: usize) -> i64 {
-        self.rwmem.get(&i).cloned().unwrap_or_else(|| self.romem[i])
+        self.rwmem.get(&i).cloned().unwrap_or_else(|| {
+            if i < self.romem.len() {
+                self.romem[i]
+            } else {
+                0
+            }
+        })
     }
 
     pub fn set(&mut self, i: usize, v: i64) {
@@ -67,6 +75,7 @@ impl<'a> Computer<'a> {
             }
             7 => self.set(aout, i64::from(v1 < v2)),
             8 => self.set(aout, i64::from(v1 == v2)),
+            9 => self.relative_base += v1,
             99 => self.halt = true,
             _ => panic!("Unknown opcode {}", opcode),
         }
@@ -93,12 +102,12 @@ impl<'a> Computer<'a> {
     }
 
     fn in_param(&self, offset: usize, mode: i64) -> i64 {
-        let v = self.get(self.pos + offset);
+        let v = self.get(self.pos + offset) + i64::from(mode == 2) * self.relative_base;
 
         if mode == 1 {
             return v;
         }
-        if mode != 0 {
+        if mode != 0 && mode != 2 {
             panic!("unknown read mode {}", mode);
         }
 
@@ -112,6 +121,7 @@ impl<'a> Computer<'a> {
             4 => (1, false),
             5 | 6 => (2, false),
             7 | 8 => (2, true),
+            9 => (1, false),
             99 => (0, false),
             _ => panic!("Unknown opcode {}", opcode),
         };
@@ -136,11 +146,12 @@ impl<'a> Computer<'a> {
         let o = if has_output {
             let write_mode = (opcode / mode_divisor[usize::from(num_inputs)]) % 10;
 
-            if write_mode != 0 {
+            if write_mode != 0 && write_mode != 2 {
                 panic!("unknown write mode {}", write_mode);
             }
 
-            let v = self.get(self.pos + 1 + usize::from(num_inputs));
+            let v = self.get(self.pos + 1 + usize::from(num_inputs))
+                + i64::from(write_mode == 2) * self.relative_base;
             usize::try_from(v).expect("invalid write target")
         } else {
             0
