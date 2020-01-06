@@ -11,6 +11,11 @@ pub struct Computer<'a> {
     block: bool,
     input: Vec<i64>,
     pub output: Vec<i64>,
+
+    funopt: bool,
+    cached_funcalls: HashMap<(usize, i64), i64>,
+    inflight_funcalls: HashMap<i64, (usize, i64)>,
+    prev_stored_ret_addr: bool,
 }
 
 impl<'a> Computer<'a> {
@@ -24,6 +29,11 @@ impl<'a> Computer<'a> {
             block: false,
             input: Vec::new(),
             output: Vec::new(),
+
+            funopt: false,
+            cached_funcalls: HashMap::new(),
+            inflight_funcalls: HashMap::new(),
+            prev_stored_ret_addr: false,
         }
     }
 
@@ -49,15 +59,30 @@ impl<'a> Computer<'a> {
         self.rwmem.insert(i, v);
     }
 
+    pub fn funopt(&mut self) {
+        self.funopt = true;
+    }
+
     pub fn step(&mut self) {
         let opcode = self.get(self.pos);
         let (num_params, v1, v2, aout) = self.params(opcode);
 
+        let mut just_stored_ret_addr = false;
         let mut jump = None;
 
         match opcode % 100 {
-            1 => self.set(aout, v1 + v2),
-            2 => self.set(aout, v1 * v2),
+            1 => {
+                self.set(aout, v1 + v2);
+                if let Ok(v) = usize::try_from(v1 + v2) {
+                    just_stored_ret_addr = v == self.pos + 7;
+                }
+            }
+            2 => {
+                self.set(aout, v1 * v2);
+                if let Ok(v) = usize::try_from(v1 * v2) {
+                    just_stored_ret_addr = v == self.pos + 7;
+                }
+            }
             3 => match self.input.pop() {
                 Some(v) => self.set(aout, v),
                 None => self.block = true,
@@ -81,12 +106,17 @@ impl<'a> Computer<'a> {
         }
 
         if !self.block {
-            if let Some(j) = jump {
+            if let Some(mut j) = jump {
+                if self.funopt {
+                    j = self.funopt_jumped(j);
+                }
                 self.pos = usize::try_from(j).expect("invalid jump target");
             } else {
                 self.pos += 1 + usize::from(num_params);
             }
         }
+
+        self.prev_stored_ret_addr = just_stored_ret_addr;
     }
 
     pub fn cont(&mut self) {
@@ -158,5 +188,37 @@ impl<'a> Computer<'a> {
         };
 
         (num_params, v1, v2, o)
+    }
+
+    fn funopt_jumped(&mut self, jump_target: i64) -> i64 {
+        let rb = match usize::try_from(self.relative_base) {
+            Ok(rb) => rb,
+            _ => return jump_target,
+        };
+
+        if jump_target == self.get(rb) {
+            if let Some(inflight) = self.inflight_funcalls.remove(&self.relative_base) {
+                // RET
+                let returned = self.get(rb + 1);
+                self.cached_funcalls.insert(inflight, returned);
+                return jump_target;
+            }
+        }
+
+        if self.prev_stored_ret_addr {
+            // CALL
+            let uj = jump_target as usize;
+            let arg = self.get(rb + 1);
+            if let Some(&cached_result) = self.cached_funcalls.get(&(uj, arg)) {
+                // Cached - hijack jump target
+                self.set(rb + 1, cached_result);
+                return self.get(rb);
+            } else {
+                // New - store, do not hijack
+                self.inflight_funcalls.insert(self.relative_base, (uj, arg));
+            }
+        }
+
+        jump_target
     }
 }
