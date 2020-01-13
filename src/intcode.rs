@@ -1,5 +1,27 @@
 use std::collections::HashMap;
 
+pub fn functions(mem: &[i64]) -> Vec<std::ops::Range<usize>> {
+    let mut calls = Vec::new();
+    let mut rets = Vec::new();
+    for (i, inst) in mem.windows(2).enumerate() {
+        let op = inst[0];
+        let arg = inst[1];
+        if op == 109 && arg > 0 {
+            calls.push(i);
+        } else if op == 2106 && arg == 0 || op == 2105 && arg != 0 {
+            rets.push(i)
+        }
+    }
+    let pair_ret = |ret: usize| {
+        calls
+            .iter()
+            .filter(|&&call| call < ret)
+            .max()
+            .map(|&m| m..ret)
+    };
+    rets.into_iter().filter_map(pair_ret).collect()
+}
+
 #[derive(Clone, Debug)]
 pub struct Computer<'a> {
     pos: usize,
