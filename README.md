@@ -21,4 +21,37 @@ Some may additionally support other ways:
 
 ## Closing Thoughts
 
-None yet.
+Sometimes `cargo fmt` does something I don't like, such as:
+
+```rust
+let foo = bar
+    .iter()
+    .map(|v| {
+        // ...
+        // ...
+    })
+    .collect();
+```
+
+So I restructure my code to avoid that, using one of two ways:
+
+First possibility is to move the closure to its own line,
+which works if the `collect` line ends up being short enough.
+
+```rust
+let f = |v: T| {
+    // ...
+    // ...
+};
+let foo = bar.iter().map(f).collect();
+```
+
+Second possibility is to make the `map` the last thing by delaying the `collect`.
+
+```rust
+let foo = bar.iter().map(|v| {
+    // ...
+    // ...
+});
+let foo = foo.collect();
+```
