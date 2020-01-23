@@ -1,3 +1,4 @@
+pub mod priority_queue;
 pub mod search;
 
 use std::env;

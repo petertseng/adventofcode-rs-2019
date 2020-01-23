@@ -57,36 +57,6 @@ where
 
 pub type Dist = u32;
 
-// This is a lot of work just so that T doesn't have to be Ord.
-// Wonder if it'll ever matter (use A* on a T that isn't Ord)
-struct AStarNode<T> {
-    prio: Dist,
-    x: T,
-}
-
-impl<T> std::cmp::Ord for AStarNode<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // Note other vs self here, since BinaryHeap is a max heap,
-        // and I want smaller priority values to come out first.
-        // Could use std::cmp::Reverse, but don't feel like it.
-        (other.prio).cmp(&self.prio)
-    }
-}
-
-impl<T> std::cmp::PartialOrd for AStarNode<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<T> std::cmp::Eq for AStarNode<T> {}
-
-impl<T> std::cmp::PartialEq for AStarNode<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.prio == other.prio
-    }
-}
-
 pub fn astar<T: Copy + Eq + std::hash::Hash, F, G, H, I>(
     start: T,
     neighbours: F,
@@ -99,20 +69,18 @@ where
     G: Fn(T) -> bool,
     I: IntoIterator<Item = (Dist, T)>,
 {
-    use std::collections::{BinaryHeap, HashSet};
+    use crate::priority_queue::PriorityQueue;
+    use std::collections::HashSet;
 
     let mut g_score = HashMap::new();
     g_score.insert(start, 0);
 
     let mut closed = HashSet::new();
-    let mut open = BinaryHeap::new();
-    open.push(AStarNode {
-        prio: heuristic(start),
-        x: start,
-    });
+    let mut open = PriorityQueue::new();
+    open.insert(start, heuristic(start));
     //let mut prev = HashMap::new();
 
-    while let Some(AStarNode { x: current, .. }) = open.pop() {
+    while let Some(current) = open.remove_min() {
         if !closed.insert(current) {
             continue;
         }
@@ -137,10 +105,7 @@ where
 
             //prev.insert(neighbour, current);
             g_score.insert(neighbour, tentative_g_score);
-            open.push(AStarNode {
-                prio: tentative_g_score + heuristic(neighbour),
-                x: neighbour,
-            })
+            open.insert(neighbour, tentative_g_score + heuristic(neighbour))
         }
     }
 
