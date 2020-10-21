@@ -20,34 +20,13 @@ fn fft(digits: &mut [i16]) {
     }
 }
 
-fn binom(mut n: usize, mut k: usize) -> usize {
-    let mut num = 1;
-    let mut denom = 1;
-    while k > 0 {
-        num *= n;
-        denom *= k;
-        n -= 1;
-        k -= 1;
-    }
-    num / denom
-}
-
-fn binom_mod(mut n: usize, mut k: usize, m: usize) -> usize {
-    let mut r = 1;
-    while k > 0 && r > 0 {
-        r *= binom(n % m, k % m) % m;
-        n /= m;
-        k /= m;
-    }
-    r
-}
-
-fn binom_mod_10(n: usize, k: usize) -> usize {
-    //let b2 = usize::from(n & k == k);
-    //let b5 = binom_mod(n, k, 5);
-    //[[0, 6, 2, 8, 4], [5, 1, 7, 3, 9]][b2][b5]
-    let b2 = if n & k == k { 5 } else { 0 };
-    let b5 = 6 * binom_mod(n, k, 5);
+fn binom_99_mod_10(i: usize) -> usize {
+    let b2 = if (i + 99) & 99 == 99 { 5 } else { 0 };
+    let b5 = match i % 125 {
+        0 => 6,
+        25 => 4,
+        _ => 0,
+    };
     (b2 + b5) % 10
 }
 
@@ -88,7 +67,7 @@ fn main() {
     let mut r = vec![0; rsize];
 
     for i in 0..len {
-        let bin = binom_mod_10(99 + i, i);
+        let bin = binom_99_mod_10(i);
         if bin == 0 {
             continue;
         }
