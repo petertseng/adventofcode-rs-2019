@@ -20,16 +20,6 @@ fn fft(digits: &mut [i16]) {
     }
 }
 
-fn binom_99_mod_10(i: usize) -> usize {
-    let b2 = if (i + 99) & 99 == 99 { 5 } else { 0 };
-    let b5 = match i % 125 {
-        0 => 6,
-        25 => 4,
-        _ => 0,
-    };
-    (b2 + b5) % 10
-}
-
 fn main() {
     let s = adventofcode::read_input_file();
 
@@ -66,17 +56,24 @@ fn main() {
     let rsize = 8;
     let mut r = vec![0; rsize];
 
-    for i in 0..len {
-        let bin = binom_99_mod_10(i);
-        if bin == 0 {
-            continue;
-        }
+    let mut stride = |big_stride, little_strides: Vec<_>| {
+        for big_stride_base in (0..len).step_by(big_stride) {
+            for (little_stride, coeff) in little_strides.iter() {
+                let i = big_stride_base + little_stride;
+                if i >= len {
+                    break;
+                }
 
-        let dist_from_end = len - i;
-        for j in 0..(min(dist_from_end, rsize)) {
-            r[j] += usize::from(input[(offset + i + j) % input.len()]) * bin;
+                let dist_from_end = len - i;
+                for j in 0..(min(dist_from_end, rsize)) {
+                    r[j] += usize::from(input[(offset + i + j) % input.len()]) * coeff;
+                }
+            }
         }
-    }
+    };
+
+    stride(128, (0..32).step_by(4).map(|x| (x, 5)).collect());
+    stride(125, vec![(0, 6), (25, 4)]);
 
     for i in &r[0..8] {
         print!("{}", i % 10);
